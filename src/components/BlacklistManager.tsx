@@ -103,12 +103,13 @@ export function BlacklistManager({ apiClient, onLogout }: BlacklistManagerProps)
       let allStrings: BlacklistString[] = [];
       let offset = 0;
       let hasMore = true;
+      const batchSize = 50;
       
       while (hasMore) {
-        const batch = await apiClient.getBlacklistStrings(selectedLists, offset, 1000);
+        const batch = await apiClient.getBlacklistStrings(selectedLists, offset, batchSize);
         allStrings = [...allStrings, ...batch];
-        hasMore = batch.length === 1000;
-        offset += 1000;
+        hasMore = batch.length === batchSize;
+        offset += batchSize;
       }
 
       // Prepare data for Excel
