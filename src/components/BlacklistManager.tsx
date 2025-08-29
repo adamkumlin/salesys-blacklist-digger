@@ -132,6 +132,7 @@ export function BlacklistManager({ apiClient, onLogout }: BlacklistManagerProps)
           await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
+      console.log(`Loaded ${allStrings.length} numbers`)
 
       if (allStrings.length === 0) {
         toast({
@@ -159,9 +160,15 @@ export function BlacklistManager({ apiClient, onLogout }: BlacklistManagerProps)
       const now = new Date();
       const timestamp = now.toISOString().slice(0, 19).replace(/[T:]/g, '-');
       const filename = `salesys-blacklist-${timestamp}.xlsx`;
-
+      
       // Download file
-      XLSX.writeFile(wb, filename);
+      try {
+        XLSX.writeFile(wb, filename);
+      } catch (err) {
+        console.error(err)
+      }
+
+      return;
 
       toast({
         title: 'Export Complete',
