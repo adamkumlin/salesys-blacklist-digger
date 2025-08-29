@@ -73,17 +73,24 @@ export function BlacklistManager({ apiClient, onLogout }: BlacklistManagerProps)
   };
 
   const handleListSelection = (listId: string, checked: boolean) => {
-    setSelectedLists(prev => 
-      checked 
+    setSelectedLists(prev => {
+      const newSelection = checked 
         ? [...prev, listId]
-        : prev.filter(id => id !== listId)
-    );
-    setStrings([]);
-    setCurrentPage(0);
+        : prev.filter(id => id !== listId);
+      
+      // Clear existing data when selection changes
+      setStrings([]);
+      setCurrentPage(0);
+      setHasNextPage(false);
+      
+      return newSelection;
+    });
   };
 
   const loadMoreStrings = () => {
-    loadStrings(currentPage + 1);
+    if (!stringsLoading && hasNextPage) {
+      loadStrings(currentPage + 1);
+    }
   };
 
   const exportToExcel = async () => {
@@ -96,8 +103,17 @@ export function BlacklistManager({ apiClient, onLogout }: BlacklistManagerProps)
       return;
     }
 
+    if (stringsLoading) {
+      return; // Prevent multiple simultaneous exports
+    }
+
     try {
       setStringsLoading(true);
+      
+      toast({
+        title: 'Export Started',
+        description: 'Loading all data for export...',
+      });
       
       // Load all strings for export
       let allStrings: BlacklistString[] = [];
@@ -110,6 +126,20 @@ export function BlacklistManager({ apiClient, onLogout }: BlacklistManagerProps)
         allStrings = [...allStrings, ...batch];
         hasMore = batch.length === batchSize;
         offset += batchSize;
+        
+        // Add a small delay to prevent overwhelming the API
+        if (hasMore) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+
+      if (allStrings.length === 0) {
+        toast({
+          title: 'No Data',
+          description: 'No strings found in selected blacklists.',
+          variant: 'destructive',
+        });
+        return;
       }
 
       // Prepare data for Excel
@@ -126,7 +156,8 @@ export function BlacklistManager({ apiClient, onLogout }: BlacklistManagerProps)
       XLSX.utils.book_append_sheet(wb, ws, 'Blacklist Strings');
 
       // Generate filename with timestamp
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      const now = new Date();
+      const timestamp = now.toISOString().slice(0, 19).replace(/[T:]/g, '-');
       const filename = `salesys-blacklist-${timestamp}.xlsx`;
 
       // Download file
@@ -134,12 +165,13 @@ export function BlacklistManager({ apiClient, onLogout }: BlacklistManagerProps)
 
       toast({
         title: 'Export Complete',
-        description: `Exported ${allStrings.length} records to ${filename}`,
+        description: `Successfully exported ${allStrings.length} records to ${filename}`,
       });
     } catch (error) {
+      console.error('Export error:', error);
       toast({
         title: 'Export Failed',
-        description: 'Failed to export data to Excel.',
+        description: error instanceof Error ? error.message : 'Failed to export data to Excel.',
         variant: 'destructive',
       });
     } finally {
